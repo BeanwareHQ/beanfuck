@@ -1,0 +1,7 @@
+3rdparty/*
+settings.h
+*.tar.gz
+beanfuck/
+beanfuck
+*.o
+.vscode
