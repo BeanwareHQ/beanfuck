@@ -8,7 +8,6 @@
  * details. Alternatively, visit the OSI website for an online copy.
  */
 
-#include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -35,10 +34,10 @@
 
 static a_string src;
 static char* cells; // heap allocated
-static int loops[MAXLOOPS] = {0};
-int loops_end = 0;
-int pc = 0;
-int ptr = 0;
+static u32 loops[MAXLOOPS] = {0};
+u32 loops_end = 0;
+usize pc = 0;
+usize ptr = 0;
 
 void add_loop(int addr) {
     loops[loops_end++] = addr;
@@ -54,7 +53,7 @@ int top_loop(void) {
 
 void dbg(void) {
     if (DEBUG) {
-        printf("pc=`%d` ptr=`%d` instr=`%c`\n", pc, ptr, src.data[pc]);
+        printf("pc=`%zu` ptr=`%zu` instr=`%c`\n", pc, ptr, src.data[pc]);
     }
 }
 
@@ -68,7 +67,7 @@ bool exists(const char* filename) {
     }
 }
 
-int main(int argc, char** argv) {
+i32 main(int argc, char** argv) {
     argc--;
     argv++;
 
