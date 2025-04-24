@@ -10,16 +10,28 @@
 
 #include <errno.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include "3rdparty/asv/a_string.h"
+#include "3rdparty/asv/asv.h"
 
-#define DEBUG    1
+#define DEBUG    0
 #define SRCMAX   1024
 #define MAXSIZE  30000
 #define MAXLOOPS 256
 
-#define INC(x) ((x + 1) % 255)
-#define DEC(x) ((x + 254) % 255) // -1 + 255
+#define INC(x, N) ((x + 1) % N)
+#define DEC(x, N) ((x - 1 + N) % N)
+
+#define LICENSE                                                                \
+    "This Source Code Form is subject to the terms of the Mozilla Public\n"    \
+    "License, v. 2.0. If a copy of the MPL was not distributed with this\n"    \
+    "file, You can obtain one at http://mozilla.org/MPL/2.0/."
+
+#define USAGE                                                                  \
+    S_BOLD                                                                     \
+    "beanfuck: a cursed, bean-flavored brainfuck interpreter.\n\n" S_END       \
+    "usage: ./beanfuck [help|filename|brainfuck source code]\n\n" LICENSE "\n"
 
 static a_string src;
 static char* cells; // heap allocated
@@ -36,9 +48,13 @@ void del_loop(void) {
     loops[--loops_end] = 0;
 }
 
+int top_loop(void) {
+    return loops[loops_end - 1];
+}
+
 void dbg(void) {
     if (DEBUG) {
-        printf("pc=`%d` ptr=`%d` instr=`%c`", pc, ptr, src.data[pc]);
+        printf("pc=`%d` ptr=`%d` instr=`%c`\n", pc, ptr, src.data[pc]);
     }
 }
 
@@ -56,21 +72,74 @@ int main(int argc, char** argv) {
     argc--;
     argv++;
 
+    a_string buf = {0};
     if (argc < 1) {
-        printf("=== enter your brainfuck source code, or provide a filename "
-               "===\n > ");
-        a_string buf = a_string_input(NULL);
-
-        if (exists(buf.data)) {
-            src = a_string_read_file(buf.data);
-        } else {
-            src = a_string_trim(&buf);
+        printf(S_DIM
+               "=== enter your brainfuck source code, or provide a filename "
+               "===\n" S_BOLD " > " S_END);
+        buf = a_string_input(NULL);
+    } else {
+        buf = astr(argv[0]);
+        if (!strcmp(buf.data, "help")) {
+            printf(USAGE);
+            goto cleanup;
         }
-        a_string_free(&buf);
     }
 
-    printf("%s\n", src.data);
+    if (exists(buf.data)) {
+        src = a_string_read_file(buf.data);
+    } else {
+        src = a_string_trim(&buf);
+    }
+    a_string_free(&buf);
+
+    cells = calloc(MAXSIZE, 1);
+
+    while (pc < src.len) {
+        dbg();
+        switch (src.data[pc]) {
+            case '<': {
+                ptr = DEC(ptr, MAXSIZE);
+            } break;
+            case '>': {
+                ptr = INC(ptr, MAXSIZE);
+            } break;
+            case '+': {
+                cells[ptr] = INC(cells[ptr], 255);
+            } break;
+            case '-': {
+                cells[ptr] = DEC(cells[ptr], 255);
+            } break;
+            case '.': {
+                putchar(cells[ptr]);
+            } break;
+            case ',': {
+                cells[ptr] = getchar();
+            } break;
+            case '[': {
+                if (cells[ptr] == 0)
+                    while (src.data[pc] != ']')
+                        pc++;
+                else
+                    add_loop(pc);
+            } break;
+            case ']': {
+                if (loops_end == 0)
+                    panic("found closing bracket without opening bracket");
+
+                if (cells[ptr] != 0)
+                    pc = top_loop();
+                else
+                    del_loop();
+            } break;
+        }
+        pc++;
+    }
 
     a_string_free(&src);
+    free(cells);
+
+cleanup:
+    puts("");
     return 0;
 }
